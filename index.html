@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WarFront — Europa 1939</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ══════════ LOBBY ══════════ -->
+<div id="lobby">
+  <div class="L-title">WARFRONT</div>
+  <div class="L-sub">EUROPA · MCMXXXIX</div>
+
+  <div class="L-card" id="card-main">
+    <div class="L-h">Spieler</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="row"><label>Name</label>
+        <input id="i-name" maxlength="18" value="General" placeholder="Name..."></div>
+      <div class="row"><label>Nation</label>
+        <select id="i-nation">
+          <option value="DE">🇩🇪 Deutschland</option>
+          <option value="FR">🇫🇷 Frankreich</option>
+          <option value="GB">🇬🇧 Großbrit.</option>
+          <option value="SU">🇷🇺 Sowjetunion</option>
+          <option value="IT">🇮🇹 Italien</option>
+          <option value="PL">🇵🇱 Polen</option>
+          <option value="ES">🇪🇸 Spanien</option>
+          <option value="HU">🇭🇺 Ungarn</option>
+        </select>
+      </div>
+    </div>
+    <div class="row"><label>Spieleranzahl (nur als Host)</label>
+      <select id="i-total">
+        <option value="2">2 Spieler</option><option value="3">3 Spieler</option>
+        <option value="4">4 Spieler</option><option value="5">5 Spieler</option>
+        <option value="6">6 Spieler</option><option value="7">7 Spieler</option>
+        <option value="8">8 Spieler</option>
+      </select>
+    </div>
+    <button class="btn" onclick="doHost()">HOST — SPIEL ERSTELLEN</button>
+    <div class="or">— oder —</div>
+    <div class="row"><label>Host-Code (Beitreten)</label>
+      <input id="i-join" placeholder="Code eingeben..." style="font-family:monospace;font-size:12px;"></div>
+    <button class="btn btn-ghost" onclick="doJoin()">BEITRETEN</button>
+    <div class="or">— oder —</div>
+    <button class="btn btn-ghost" onclick="doSolo()">SOLO GEGEN KI &nbsp;(F1)</button>
+    <div id="lmsg"></div>
+  </div>
+
+  <div class="L-card" id="card-wait" style="display:none;">
+    <div class="L-h">Warte auf Mitspieler</div>
+    <div class="row">
+      <label>Dein Host-Code — klicken zum Kopieren</label>
+      <div id="code-box" onclick="copyCode()">Verbinde...</div>
+    </div>
+    <div class="slots" id="slot-list"></div>
+    <button class="btn" id="btn-start" onclick="doStart()" disabled style="margin-top:12px;">
+      SPIEL STARTEN
+    </button>
+    <div id="lmsg2"></div>
+  </div>
+
+  <div style="font-size:11px;color:var(--muted);opacity:.55;position:relative;">
+    Shift+Klick = eigene Einheiten zu Zelle schicken &nbsp;·&nbsp; Scroll = Zoom &nbsp;·&nbsp; Drag = Pan
+  </div>
+</div>
+
+<!-- ══════════ GAME ══════════ -->
+<div id="game">
+  <!-- TOP HUD -->
+  <div id="hud">
+    <div class="hud-title">WARFRONT</div>
+    <div class="hud-stat">
+      <div class="hud-lbl">Gold</div>
+      <div class="hud-val" id="h-gold">0</div>
+    </div>
+    <div class="hud-stat">
+      <div class="hud-lbl">Industrie</div>
+      <div class="hud-val" id="h-prod">0</div>
+    </div>
+    <div class="hud-stat">
+      <div class="hud-lbl">Zellen</div>
+      <div class="hud-val" id="h-cells">0</div>
+    </div>
+    <div id="hud-right">
+      <div class="hud-timer" id="h-time">⏱ 00:00</div>
+    </div>
+  </div>
+
+  <!-- ARENA (canvas + sidebar) -->
+  <div id="arena">
+    <canvas id="cv"></canvas>
+    <div id="banner">🏃 Modus aktiv</div>
+
+    <!-- MINIMAP -->
+    <div id="mini">
+      <canvas id="mini-cv"></canvas>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div id="sb">
+      <div id="sb-tab" onclick="toggleSB()">◀</div>
+
+      <div class="sb-sec">
+        <div class="sb-h">Zelle / Gebiet</div>
+        <div id="sb-name" style="color:var(--muted);font-size:12px;">Keine Zelle gewählt</div>
+        <div id="sb-info"></div>
+      </div>
+
+      <div class="sb-sec" id="sb-actions" style="display:none;">
+        <div class="sb-h">Einheiten spawnen</div>
+        <div class="act-grid" id="act-grid"></div>
+        <div style="font-size:9px;color:var(--muted);margin-top:6px;">
+          Dann Zielzelle klicken &nbsp;·&nbsp; Shift+Klick = Truppen bewegen
+        </div>
+      </div>
+
+      <div id="sb-tech">
+        <div class="sb-h" style="margin-bottom:8px;">Forschung</div>
+        <div id="tech-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div id="log"><div id="log-i"></div></div>
+</div>
+
+<!-- TOAST & VICTORY -->
+<div id="toast"></div>
+<div id="vic">
+  <div class="vic-t">SIEG!</div>
+  <div class="vic-s" id="vic-s">Europa wurde vereint.</div>
+  <button class="btn" style="width:180px;margin-top:14px;" onclick="location.reload()">NEUES SPIEL</button>
+</div>
+
+<!-- SCRIPTS — order matters: map data first, then game logic -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+<script src="map.js"></script>
+<script src="game.js"></script>
+<script>
+  // Quick-start shortcuts
+  document.addEventListener('keydown', e => { if (e.key === 'F1') { e.preventDefault(); doSolo(); } });
+</script>
+</body>
+</html>
